@@ -198,12 +198,88 @@ async function handleMessage(
       replyToken,
       messages: [{ type: 'text', text: '✅ すべての通知を無効にしました。' }],
     });
+  } else if (/^(削除|delete)$/i.test(text)) {
+    // Delete all settings for user
+    const { data: settings } = await supabase
+      .from('notification_settings')
+      .select('*')
+      .eq('user_id', user.id);
+
+    if (!settings || settings.length === 0) {
+      await client.replyMessage({
+        replyToken,
+        messages: [{ type: 'text', text: '削除する設定がありません。' }],
+      });
+    } else {
+      await supabase
+        .from('notification_settings')
+        .delete()
+        .eq('user_id', user.id);
+
+      await client.replyMessage({
+        replyToken,
+        messages: [{ type: 'text', text: `✅ ${settings.length}件の設定を削除しました。` }],
+      });
+    }
+  } else if (/^(いま|今|now|current)$/i.test(text)) {
+    // Show current tram positions for user's stations
+    const { data: settings } = await supabase
+      .from('notification_settings')
+      .select('*')
+      .eq('user_id', user.id);
+
+    if (!settings || settings.length === 0) {
+      await client.replyMessage({
+        replyToken,
+        messages: [{ type: 'text', text: '設定された電停がありません。「設定」から通知電停を追加してください。' }],
+      });
+    } else {
+      // Fetch tram positions
+      try {
+        const tramResponse = await fetch('https://www.kumamoto-city-tramway.jp/Sys/web01List', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'User-Agent': 'KumamotoTramNotify/1.0' },
+          body: '',
+        });
+        const trams = await tramResponse.json() as Array<{ interval_id: number; rosen: 'A' | 'B'; us: number; vehicle_type: number }>;
+
+        let message = '🚃 現在の電車状況\n';
+
+        for (const setting of settings) {
+          const station = STATIONS.find(s => s.id === setting.station_id);
+          if (!station) continue;
+
+          const dirText = setting.direction === 'down' ? '健軍町方面' : '始発方面';
+          message += `\n📍 ${station.name} (${dirText})\n`;
+
+          const approaching = findApproachingTrams(trams, setting.station_id, setting.direction as 'up' | 'down');
+
+          if (approaching.length === 0) {
+            message += '  → 近くに電車はありません\n';
+          } else {
+            for (const tram of approaching.slice(0, 3)) {
+              message += `  → ${tram.stopsAway}駅前 (約${tram.minutes}分) ${tram.line}系統\n`;
+            }
+          }
+        }
+
+        await client.replyMessage({
+          replyToken,
+          messages: [{ type: 'text', text: message }],
+        });
+      } catch (e) {
+        await client.replyMessage({
+          replyToken,
+          messages: [{ type: 'text', text: '電車情報の取得に失敗しました。' }],
+        });
+      }
+    }
   } else {
     await client.replyMessage({
       replyToken,
       messages: [{
         type: 'text',
-        text: '📝 コマンド一覧\n\n「設定」→ 通知設定\n「確認」→ 設定一覧\n「オン」→ 通知有効化\n「オフ」→ 通知無効化',
+        text: '📝 コマンド一覧\n\n「設定」→ 通知設定\n「確認」→ 設定一覧\n「オン」→ 通知有効化\n「オフ」→ 通知無効化\n「削除」→ 設定削除\n「いま」→ 現在の電車',
       }],
     });
   }
@@ -301,43 +377,94 @@ async function handlePostback(
   }
 }
 
-// Station data
+// Station data with interval IDs
 const STATIONS = [
-  { id: 1, name: '田崎橋', lines: ['A'] },
-  { id: 2, name: '二本木口', lines: ['A'] },
-  { id: 3, name: '熊本駅前', lines: ['A'] },
-  { id: 4, name: '祇園橋', lines: ['A'] },
-  { id: 5, name: '呉服町', lines: ['A'] },
-  { id: 6, name: '河原町', lines: ['A'] },
-  { id: 7, name: '慶徳校前', lines: ['A'] },
-  { id: 21, name: '上熊本', lines: ['B'] },
-  { id: 22, name: '県立体育館前', lines: ['B'] },
-  { id: 23, name: '本妙寺入口', lines: ['B'] },
-  { id: 24, name: '杉塘', lines: ['B'] },
-  { id: 25, name: '段山町', lines: ['B'] },
-  { id: 26, name: '蔚山町', lines: ['B'] },
-  { id: 27, name: '新町', lines: ['B'] },
-  { id: 28, name: '洗馬橋', lines: ['B'] },
-  { id: 29, name: '西辛島町', lines: ['B'] },
-  { id: 8, name: '辛島町', lines: ['A', 'B'] },
-  { id: 9, name: '花畑町', lines: ['A', 'B'] },
-  { id: 10, name: '熊本城・市役所前', lines: ['A', 'B'] },
-  { id: 11, name: '通町筋', lines: ['A', 'B'] },
-  { id: 12, name: '水道町', lines: ['A', 'B'] },
-  { id: 13, name: '九品寺交差点', lines: ['A', 'B'] },
-  { id: 14, name: '交通局前', lines: ['A', 'B'] },
-  { id: 15, name: '味噌天神前', lines: ['A', 'B'] },
-  { id: 16, name: '新水前寺駅前', lines: ['A', 'B'] },
-  { id: 17, name: '国府', lines: ['A', 'B'] },
-  { id: 18, name: '水前寺公園', lines: ['A', 'B'] },
-  { id: 19, name: '市立体育館前', lines: ['A', 'B'] },
-  { id: 20, name: '商業高校前', lines: ['A', 'B'] },
-  { id: 30, name: '八丁馬場', lines: ['A', 'B'] },
-  { id: 31, name: '神水交差点', lines: ['A', 'B'] },
-  { id: 32, name: '健軍校前', lines: ['A', 'B'] },
-  { id: 33, name: '動植物園入口', lines: ['A', 'B'] },
-  { id: 34, name: '健軍町', lines: ['A', 'B'] },
+  { id: 1, name: '田崎橋', lines: ['A'], intervalIdUp: null, intervalIdDown: 101 },
+  { id: 2, name: '二本木口', lines: ['A'], intervalIdUp: 101, intervalIdDown: 102 },
+  { id: 3, name: '熊本駅前', lines: ['A'], intervalIdUp: 102, intervalIdDown: 103 },
+  { id: 4, name: '祇園橋', lines: ['A'], intervalIdUp: 103, intervalIdDown: 104 },
+  { id: 5, name: '呉服町', lines: ['A'], intervalIdUp: 104, intervalIdDown: 105 },
+  { id: 6, name: '河原町', lines: ['A'], intervalIdUp: 105, intervalIdDown: 106 },
+  { id: 7, name: '慶徳校前', lines: ['A'], intervalIdUp: 106, intervalIdDown: 107 },
+  { id: 21, name: '上熊本', lines: ['B'], intervalIdUp: null, intervalIdDown: 201 },
+  { id: 22, name: '県立体育館前', lines: ['B'], intervalIdUp: 201, intervalIdDown: 202 },
+  { id: 23, name: '本妙寺入口', lines: ['B'], intervalIdUp: 202, intervalIdDown: 203 },
+  { id: 24, name: '杉塘', lines: ['B'], intervalIdUp: 203, intervalIdDown: 204 },
+  { id: 25, name: '段山町', lines: ['B'], intervalIdUp: 204, intervalIdDown: 205 },
+  { id: 26, name: '蔚山町', lines: ['B'], intervalIdUp: 205, intervalIdDown: 206 },
+  { id: 27, name: '新町', lines: ['B'], intervalIdUp: 206, intervalIdDown: 207 },
+  { id: 28, name: '洗馬橋', lines: ['B'], intervalIdUp: 207, intervalIdDown: 208 },
+  { id: 29, name: '西辛島町', lines: ['B'], intervalIdUp: 208, intervalIdDown: 209 },
+  { id: 8, name: '辛島町', lines: ['A', 'B'], intervalIdUp: 107, intervalIdDown: 108 },
+  { id: 9, name: '花畑町', lines: ['A', 'B'], intervalIdUp: 108, intervalIdDown: 109 },
+  { id: 10, name: '熊本城・市役所前', lines: ['A', 'B'], intervalIdUp: 109, intervalIdDown: 110 },
+  { id: 11, name: '通町筋', lines: ['A', 'B'], intervalIdUp: 110, intervalIdDown: 111 },
+  { id: 12, name: '水道町', lines: ['A', 'B'], intervalIdUp: 111, intervalIdDown: 112 },
+  { id: 13, name: '九品寺交差点', lines: ['A', 'B'], intervalIdUp: 112, intervalIdDown: 113 },
+  { id: 14, name: '交通局前', lines: ['A', 'B'], intervalIdUp: 113, intervalIdDown: 114 },
+  { id: 15, name: '味噌天神前', lines: ['A', 'B'], intervalIdUp: 114, intervalIdDown: 115 },
+  { id: 16, name: '新水前寺駅前', lines: ['A', 'B'], intervalIdUp: 115, intervalIdDown: 116 },
+  { id: 17, name: '国府', lines: ['A', 'B'], intervalIdUp: 116, intervalIdDown: 117 },
+  { id: 18, name: '水前寺公園', lines: ['A', 'B'], intervalIdUp: 117, intervalIdDown: 118 },
+  { id: 19, name: '市立体育館前', lines: ['A', 'B'], intervalIdUp: 118, intervalIdDown: 119 },
+  { id: 20, name: '商業高校前', lines: ['A', 'B'], intervalIdUp: 119, intervalIdDown: 120 },
+  { id: 30, name: '八丁馬場', lines: ['A', 'B'], intervalIdUp: 120, intervalIdDown: 121 },
+  { id: 31, name: '神水交差点', lines: ['A', 'B'], intervalIdUp: 121, intervalIdDown: 122 },
+  { id: 32, name: '健軍校前', lines: ['A', 'B'], intervalIdUp: 122, intervalIdDown: 123 },
+  { id: 33, name: '動植物園入口', lines: ['A', 'B'], intervalIdUp: 123, intervalIdDown: 124 },
+  { id: 34, name: '健軍町', lines: ['A', 'B'], intervalIdUp: 124, intervalIdDown: null },
 ];
+
+const A_LINE_ORDER = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 30, 31, 32, 33, 34];
+const B_LINE_ORDER = [21, 22, 23, 24, 25, 26, 27, 28, 29, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 30, 31, 32, 33, 34];
+
+// Build interval to station map
+const INTERVAL_MAP = new Map<number, typeof STATIONS[0]>();
+STATIONS.forEach(station => {
+  if (station.intervalIdUp) INTERVAL_MAP.set(station.intervalIdUp, station);
+  if (station.intervalIdDown) INTERVAL_MAP.set(station.intervalIdDown, station);
+});
+
+function findApproachingTrams(
+  trams: Array<{ interval_id: number; rosen: 'A' | 'B'; us: number; vehicle_type: number }>,
+  targetStationId: number,
+  targetDirection: 'up' | 'down'
+): Array<{ line: 'A' | 'B'; stopsAway: number; minutes: number; vehicleType: string }> {
+  const results: Array<{ line: 'A' | 'B'; stopsAway: number; minutes: number; vehicleType: string }> = [];
+
+  for (const tram of trams) {
+    const tramDirection = tram.us === 0 ? 'up' : 'down';
+    if (tramDirection !== targetDirection) continue;
+
+    const currentStation = INTERVAL_MAP.get(tram.interval_id);
+    if (!currentStation) continue;
+
+    const lineOrder = tram.rosen === 'A' ? A_LINE_ORDER : B_LINE_ORDER;
+    const currentIdx = lineOrder.indexOf(currentStation.id);
+    const targetIdx = lineOrder.indexOf(targetStationId);
+
+    if (currentIdx === -1 || targetIdx === -1) continue;
+
+    let stopsAway: number;
+    if (targetDirection === 'down') {
+      stopsAway = targetIdx - currentIdx;
+    } else {
+      stopsAway = currentIdx - targetIdx;
+    }
+
+    if (stopsAway > 0 && stopsAway <= 15) {
+      results.push({
+        line: tram.rosen,
+        stopsAway,
+        minutes: Math.max(1, Math.round(stopsAway * 2)),
+        vehicleType: tram.vehicle_type === 2 ? '超低床車' : '一般車',
+      });
+    }
+  }
+
+  results.sort((a, b) => a.stopsAway - b.stopsAway);
+  return results;
+}
 
 function buildWelcomeMessage() {
   return {
