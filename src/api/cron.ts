@@ -1,4 +1,5 @@
-import { smartPoll, cleanupTask } from '../services/polling.js';
+import { fetchTramPositions } from '../services/tram-api.js';
+import { sendMorningNotifications } from '../services/notification.js';
 
 export interface CronResponse {
   statusCode: number;
@@ -6,43 +7,33 @@ export interface CronResponse {
 }
 
 /**
- * Cron job handler - runs periodically to poll tram positions and send notifications
+ * Morning cron job handler - sends daily notification at 7:25 JST
+ * with next 2 trams for each user's configured stations
  */
-export async function handleCron(): Promise<CronResponse> {
-  console.log('Cron job started:', new Date().toISOString());
+export async function handleMorningCron(): Promise<CronResponse> {
+  console.log('Morning cron job started:', new Date().toISOString());
 
   try {
-    const result = await smartPoll();
+    // Fetch current tram positions
+    const trams = await fetchTramPositions();
+    console.log(`Fetched ${trams.length} tram positions`);
 
-    if (result.skipped) {
-      console.log('Poll skipped - outside operating hours');
-      return {
-        statusCode: 200,
-        body: JSON.stringify({ status: 'skipped', reason: 'outside_operating_hours' }),
-      };
-    }
+    // Send morning notifications to all users
+    const notificationCount = await sendMorningNotifications(trams);
 
-    if (!result.success) {
-      console.error('Poll failed:', result.error);
-      return {
-        statusCode: 500,
-        body: JSON.stringify({ status: 'error', error: result.error }),
-      };
-    }
-
-    console.log(`Poll completed: ${result.tramCount} trams, ${result.notificationCount} notifications`);
+    console.log(`Morning notifications sent: ${notificationCount} users`);
 
     return {
       statusCode: 200,
       body: JSON.stringify({
         status: 'success',
-        tramCount: result.tramCount,
-        notificationCount: result.notificationCount,
+        tramCount: trams.length,
+        notificationCount,
       }),
     };
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    console.error('Cron job error:', errorMessage);
+    console.error('Morning cron job error:', errorMessage);
 
     return {
       statusCode: 500,
@@ -52,33 +43,7 @@ export async function handleCron(): Promise<CronResponse> {
 }
 
 /**
- * Cleanup cron handler - runs daily to clean old notification history
- */
-export async function handleCleanup(): Promise<CronResponse> {
-  console.log('Cleanup job started:', new Date().toISOString());
-
-  try {
-    const deletedCount = await cleanupTask();
-
-    console.log(`Cleanup completed: ${deletedCount} records deleted`);
-
-    return {
-      statusCode: 200,
-      body: JSON.stringify({ status: 'success', deletedCount }),
-    };
-  } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    console.error('Cleanup job error:', errorMessage);
-
-    return {
-      statusCode: 500,
-      body: JSON.stringify({ status: 'error', error: errorMessage }),
-    };
-  }
-}
-
-/**
- * Vercel serverless function handler for main polling cron
+ * Vercel serverless function handler for morning cron
  */
 export default async function handler(
   req: { headers: Record<string, string | string[] | undefined> },
@@ -93,6 +58,6 @@ export default async function handler(
     return;
   }
 
-  const result = await handleCron();
+  const result = await handleMorningCron();
   res.status(result.statusCode).json(JSON.parse(result.body));
 }

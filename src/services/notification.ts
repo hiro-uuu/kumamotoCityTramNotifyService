@@ -12,7 +12,8 @@ import {
   isWithinTimeRange,
   isOnActiveWeekday,
 } from '../db/queries.js';
-import { sendTramNotification } from './line-client.js';
+import { sendTramNotification, sendMorningNotification } from './line-client.js';
+import { User } from '../types/index.js';
 
 /**
  * Calculate the number of stops between a tram's current position and a target station
@@ -187,4 +188,95 @@ export function findTramsApproaching(
   results.sort((a, b) => a.stopsAway - b.stopsAway);
 
   return results;
+}
+
+/**
+ * Morning notification data structure
+ */
+export interface MorningNotificationData {
+  stationName: string;
+  directionText: string;
+  trams: Array<{
+    line: 'A' | 'B';
+    stopsAway: number;
+    estimatedMinutes: number;
+    vehicleType: string;
+  }>;
+}
+
+/**
+ * Send morning notifications to all users with their configured stations
+ */
+export async function sendMorningNotifications(trams: TramPosition[]): Promise<number> {
+  let notificationCount = 0;
+
+  try {
+    const activeSettings = await getActiveNotificationSettings();
+
+    // Group settings by user
+    const userSettingsMap = new Map<string, { user: User; settings: typeof activeSettings }>();
+
+    for (const settingWithUser of activeSettings) {
+      const { user } = settingWithUser;
+      const existing = userSettingsMap.get(user.line_user_id);
+
+      if (existing) {
+        existing.settings.push(settingWithUser);
+      } else {
+        userSettingsMap.set(user.line_user_id, {
+          user,
+          settings: [settingWithUser],
+        });
+      }
+    }
+
+    // Process each user
+    for (const [lineUserId, { settings }] of userSettingsMap) {
+      const notificationDataList: MorningNotificationData[] = [];
+
+      for (const settingWithUser of settings) {
+        const setting = settingWithUser;
+        const station = getStationById(setting.station_id);
+
+        if (!station) {
+          continue;
+        }
+
+        const directionText = setting.direction === 'down' ? '健軍町方面' :
+          (station.lines.includes('A') ? '田崎橋方面' : '上熊本方面');
+
+        // Find approaching trams (up to 10 stops away to get next 2)
+        const approaching = findTramsApproaching(trams, setting.station_id, setting.direction, 15);
+
+        // Get next 2 trams
+        const nextTrams = approaching.slice(0, 2).map(({ tram, stopsAway }) => ({
+          line: tram.rosen,
+          stopsAway,
+          estimatedMinutes: estimateMinutesToArrival(stopsAway),
+          vehicleType: tram.vehicle_type === 2 ? '超低床車' : '一般車',
+        }));
+
+        notificationDataList.push({
+          stationName: station.name,
+          directionText,
+          trams: nextTrams,
+        });
+      }
+
+      if (notificationDataList.length > 0) {
+        try {
+          await sendMorningNotification(lineUserId, notificationDataList);
+          notificationCount++;
+          console.log(`Sent morning notification to ${lineUserId}`);
+        } catch (error) {
+          console.error(`Failed to send morning notification to ${lineUserId}:`, error);
+        }
+      }
+    }
+  } catch (error) {
+    console.error('Error sending morning notifications:', error);
+    throw error;
+  }
+
+  return notificationCount;
 }
