@@ -2,23 +2,18 @@
   "version": 2,
   "buildCommand": "npm run build",
   "outputDirectory": "dist",
-  "functions": {
-    "api/**/*.ts": {}
-  },
+
   "routes": [
     {
-      "src": "/api/webhook",
-      "dest": "/api/webhook.ts"
-    },
-    {
-      "src": "/api/cron",
-      "dest": "/api/cron.ts"
+      "src": "/api/(.*)",
+      "dest": "/api/$1"
     }
   ],
+
   "crons": [
     {
       "path": "/api/cron",
-      "schedule": "25 7 * * *"
+      "schedule": "22 16 * * *"
     }
   ]
 }
