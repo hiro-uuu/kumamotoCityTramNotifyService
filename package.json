@@ -1,6 +1,7 @@
 {
   "name": "kumamoto-city-tram-notify-service",
   "version": "1.0.0",
+  "type": "module",
   "description": "LINE Bot for Kumamoto City Tram arrival notifications",
   "main": "dist/index.js",
   "scripts": {
