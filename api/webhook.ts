@@ -238,10 +238,45 @@ async function handleMessage(
       try {
         const tramResponse = await fetch('https://www.kumamoto-city-tramway.jp/Sys/web01List', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'User-Agent': 'KumamotoTramNotify/1.0' },
+          headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+            'User-Agent': 'KumamotoTramNotify/1.0',
+            'Accept': 'application/json',
+          },
           body: '',
         });
-        const trams = await tramResponse.json() as Array<{ interval_id: number; rosen: 'A' | 'B'; us: number; vehicle_type: number }>;
+
+        if (!tramResponse.ok) {
+          console.error('Tram API error:', tramResponse.status, tramResponse.statusText);
+          await client.replyMessage({
+            replyToken,
+            messages: [{ type: 'text', text: `電車情報の取得に失敗しました。(HTTP ${tramResponse.status})` }],
+          });
+          return;
+        }
+
+        const responseText = await tramResponse.text();
+        let trams: Array<{ interval_id: number; rosen: 'A' | 'B'; us: number; vehicle_type: number }>;
+
+        try {
+          trams = JSON.parse(responseText);
+        } catch (parseError) {
+          console.error('JSON parse error:', responseText.substring(0, 200));
+          await client.replyMessage({
+            replyToken,
+            messages: [{ type: 'text', text: '電車情報の解析に失敗しました。' }],
+          });
+          return;
+        }
+
+        if (!Array.isArray(trams)) {
+          console.error('Unexpected response format:', typeof trams);
+          await client.replyMessage({
+            replyToken,
+            messages: [{ type: 'text', text: '電車情報の形式が不正です。' }],
+          });
+          return;
+        }
 
         let message = '🚃 現在の電車状況\n';
 
@@ -268,9 +303,10 @@ async function handleMessage(
           messages: [{ type: 'text', text: message }],
         });
       } catch (e) {
+        console.error('Tram fetch error:', e);
         await client.replyMessage({
           replyToken,
-          messages: [{ type: 'text', text: '電車情報の取得に失敗しました。' }],
+          messages: [{ type: 'text', text: `電車情報の取得に失敗しました。(${e instanceof Error ? e.message : 'Unknown error'})` }],
         });
       }
     }
