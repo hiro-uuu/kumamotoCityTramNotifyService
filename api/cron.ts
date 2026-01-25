@@ -63,7 +63,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   try {
     // Fetch tram positions
-    const tramResponse = await fetch('https://www.kumamoto-city-tramway.jp/Sys/web01List', {
+    const tramResponse = await fetch('https://www.kumamoto-city-tram.jp/Sys/web01List', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/x-www-form-urlencoded',
