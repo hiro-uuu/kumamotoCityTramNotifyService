@@ -413,53 +413,143 @@ async function handlePostback(
   }
 }
 
-// Station data with interval IDs
+// Station data
 const STATIONS = [
-  { id: 1, name: '田崎橋', lines: ['A'], intervalIdUp: null, intervalIdDown: 101 },
-  { id: 2, name: '二本木口', lines: ['A'], intervalIdUp: 101, intervalIdDown: 102 },
-  { id: 3, name: '熊本駅前', lines: ['A'], intervalIdUp: 102, intervalIdDown: 103 },
-  { id: 4, name: '祇園橋', lines: ['A'], intervalIdUp: 103, intervalIdDown: 104 },
-  { id: 5, name: '呉服町', lines: ['A'], intervalIdUp: 104, intervalIdDown: 105 },
-  { id: 6, name: '河原町', lines: ['A'], intervalIdUp: 105, intervalIdDown: 106 },
-  { id: 7, name: '慶徳校前', lines: ['A'], intervalIdUp: 106, intervalIdDown: 107 },
-  { id: 21, name: '上熊本', lines: ['B'], intervalIdUp: null, intervalIdDown: 201 },
-  { id: 22, name: '県立体育館前', lines: ['B'], intervalIdUp: 201, intervalIdDown: 202 },
-  { id: 23, name: '本妙寺入口', lines: ['B'], intervalIdUp: 202, intervalIdDown: 203 },
-  { id: 24, name: '杉塘', lines: ['B'], intervalIdUp: 203, intervalIdDown: 204 },
-  { id: 25, name: '段山町', lines: ['B'], intervalIdUp: 204, intervalIdDown: 205 },
-  { id: 26, name: '蔚山町', lines: ['B'], intervalIdUp: 205, intervalIdDown: 206 },
-  { id: 27, name: '新町', lines: ['B'], intervalIdUp: 206, intervalIdDown: 207 },
-  { id: 28, name: '洗馬橋', lines: ['B'], intervalIdUp: 207, intervalIdDown: 208 },
-  { id: 29, name: '西辛島町', lines: ['B'], intervalIdUp: 208, intervalIdDown: 209 },
-  { id: 8, name: '辛島町', lines: ['A', 'B'], intervalIdUp: 107, intervalIdDown: 108 },
-  { id: 9, name: '花畑町', lines: ['A', 'B'], intervalIdUp: 108, intervalIdDown: 109 },
-  { id: 10, name: '熊本城・市役所前', lines: ['A', 'B'], intervalIdUp: 109, intervalIdDown: 110 },
-  { id: 11, name: '通町筋', lines: ['A', 'B'], intervalIdUp: 110, intervalIdDown: 111 },
-  { id: 12, name: '水道町', lines: ['A', 'B'], intervalIdUp: 111, intervalIdDown: 112 },
-  { id: 13, name: '九品寺交差点', lines: ['A', 'B'], intervalIdUp: 112, intervalIdDown: 113 },
-  { id: 14, name: '交通局前', lines: ['A', 'B'], intervalIdUp: 113, intervalIdDown: 114 },
-  { id: 15, name: '味噌天神前', lines: ['A', 'B'], intervalIdUp: 114, intervalIdDown: 115 },
-  { id: 16, name: '新水前寺駅前', lines: ['A', 'B'], intervalIdUp: 115, intervalIdDown: 116 },
-  { id: 17, name: '国府', lines: ['A', 'B'], intervalIdUp: 116, intervalIdDown: 117 },
-  { id: 18, name: '水前寺公園', lines: ['A', 'B'], intervalIdUp: 117, intervalIdDown: 118 },
-  { id: 19, name: '市立体育館前', lines: ['A', 'B'], intervalIdUp: 118, intervalIdDown: 119 },
-  { id: 20, name: '商業高校前', lines: ['A', 'B'], intervalIdUp: 119, intervalIdDown: 120 },
-  { id: 30, name: '八丁馬場', lines: ['A', 'B'], intervalIdUp: 120, intervalIdDown: 121 },
-  { id: 31, name: '神水交差点', lines: ['A', 'B'], intervalIdUp: 121, intervalIdDown: 122 },
-  { id: 32, name: '健軍校前', lines: ['A', 'B'], intervalIdUp: 122, intervalIdDown: 123 },
-  { id: 33, name: '動植物園入口', lines: ['A', 'B'], intervalIdUp: 123, intervalIdDown: 124 },
-  { id: 34, name: '健軍町', lines: ['A', 'B'], intervalIdUp: 124, intervalIdDown: null },
+  { id: 1, name: '田崎橋', lines: ['A'] },
+  { id: 2, name: '二本木口', lines: ['A'] },
+  { id: 3, name: '熊本駅前', lines: ['A'] },
+  { id: 4, name: '祇園橋', lines: ['A'] },
+  { id: 5, name: '呉服町', lines: ['A'] },
+  { id: 6, name: '河原町', lines: ['A'] },
+  { id: 7, name: '慶徳校前', lines: ['A'] },
+  { id: 21, name: '上熊本', lines: ['B'] },
+  { id: 22, name: '県立体育館前', lines: ['B'] },
+  { id: 23, name: '本妙寺入口', lines: ['B'] },
+  { id: 24, name: '杉塘', lines: ['B'] },
+  { id: 25, name: '段山町', lines: ['B'] },
+  { id: 26, name: '蔚山町', lines: ['B'] },
+  { id: 27, name: '新町', lines: ['B'] },
+  { id: 28, name: '洗馬橋', lines: ['B'] },
+  { id: 29, name: '西辛島町', lines: ['B'] },
+  { id: 8, name: '辛島町', lines: ['A', 'B'] },
+  { id: 9, name: '花畑町', lines: ['A', 'B'] },
+  { id: 10, name: '熊本城・市役所前', lines: ['A', 'B'] },
+  { id: 11, name: '通町筋', lines: ['A', 'B'] },
+  { id: 12, name: '水道町', lines: ['A', 'B'] },
+  { id: 13, name: '九品寺交差点', lines: ['A', 'B'] },
+  { id: 14, name: '交通局前', lines: ['A', 'B'] },
+  { id: 15, name: '味噌天神前', lines: ['A', 'B'] },
+  { id: 16, name: '新水前寺駅前', lines: ['A', 'B'] },
+  { id: 17, name: '国府', lines: ['A', 'B'] },
+  { id: 18, name: '水前寺公園', lines: ['A', 'B'] },
+  { id: 19, name: '市立体育館前', lines: ['A', 'B'] },
+  { id: 20, name: '商業高校前', lines: ['A', 'B'] },
+  { id: 30, name: '八丁馬場', lines: ['A', 'B'] },
+  { id: 31, name: '神水交差点', lines: ['A', 'B'] },
+  { id: 32, name: '健軍校前', lines: ['A', 'B'] },
+  { id: 33, name: '動植物園入口', lines: ['A', 'B'] },
+  { id: 34, name: '健軍町', lines: ['A', 'B'] },
 ];
 
-const A_LINE_ORDER = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 30, 31, 32, 33, 34];
-const B_LINE_ORDER = [21, 22, 23, 24, 25, 26, 27, 28, 29, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 30, 31, 32, 33, 34];
+// A系統の区間グループ (実際のAPI interval_idに基づく)
+// 各グループはその位置に対応するinterval_idの配列
+const A_LINE_GROUPS: number[][] = [
+  [1], [2, 3], [4], [5, 6, 7], [8], [9, 10, 11], [12], [13, 14, 15], [16], [17, 18, 19],
+  [20], [21, 22, 23], [24], [25, 26, 27, 28, 29], [30], [31, 32, 33], [34], [35, 36, 37],
+  [38], [39, 40, 41], [42], [43, 44], [45], [46, 47, 48, 49, 50, 51, 52], [53], [54, 55],
+  [56], [57, 58, 59, 60, 61, 62], [63], [64, 65, 66, 67, 68], [69], [70, 71, 72, 73],
+  [74], [75, 76, 77, 78, 79], [80], [81, 82, 83], [84], [85, 86, 87, 88, 89], [90],
+  [91, 92, 93, 94], [95], [96, 97, 98, 99], [100], [101, 102, 103, 104, 105, 106], [107],
+  [108, 109, 110], [111], [112, 113, 114], [115], [116, 117, 118, 119], [120]
+];
 
-// Build interval to station map
-const INTERVAL_MAP = new Map<number, typeof STATIONS[0]>();
-STATIONS.forEach(station => {
-  if (station.intervalIdUp) INTERVAL_MAP.set(station.intervalIdUp, station);
-  if (station.intervalIdDown) INTERVAL_MAP.set(station.intervalIdDown, station);
-});
+// B系統の区間グループ
+const B_LINE_GROUPS: number[][] = [
+  [201], [202, 203], [204], [205], [206], [207], [208], [209, 210, 211], [212],
+  [213, 214, 215], [216], [217, 218, 219], [220], [221, 222], [223], [224, 225], [226],
+  // 共通区間（辛島町以降）
+  [27, 28, 29], [30], [31, 32, 33], [34], [35, 36, 37], [38], [39, 40, 41], [42],
+  [43, 44], [45], [46, 47, 48, 49, 50, 51, 52], [53], [54, 55], [56], [57, 58, 59, 60, 61, 62],
+  [63], [64, 65, 66, 67, 68], [69], [70, 71, 72, 73], [74], [75, 76, 77, 78, 79], [80],
+  [81, 82, 83], [84], [85, 86, 87, 88, 89], [90], [91, 92, 93, 94], [95], [96, 97, 98, 99],
+  [100], [101, 102, 103, 104, 105, 106], [107], [108, 109, 110], [111], [112, 113, 114],
+  [115], [116, 117, 118, 119], [120]
+];
+
+// 電停ID → 区間グループインデックスのマッピング
+// A系統: 偶数インデックスが電停位置 (0=田崎橋, 2=二本木口, ...)
+const A_STATION_POSITIONS: Map<number, number> = new Map([
+  [1, 0],   // 田崎橋
+  [2, 2],   // 二本木口
+  [3, 4],   // 熊本駅前
+  [4, 6],   // 祇園橋
+  [5, 8],   // 呉服町
+  [6, 10],  // 河原町
+  [7, 12],  // 慶徳校前
+  [8, 14],  // 辛島町
+  [9, 16],  // 花畑町
+  [10, 18], // 熊本城・市役所前
+  [11, 20], // 通町筋
+  [12, 22], // 水道町
+  [13, 24], // 九品寺交差点
+  [14, 26], // 交通局前
+  [15, 28], // 味噌天神前
+  [16, 30], // 新水前寺駅前
+  [17, 32], // 国府
+  [18, 34], // 水前寺公園
+  [19, 36], // 市立体育館前
+  [20, 38], // 商業高校前
+  [30, 40], // 八丁馬場
+  [31, 42], // 神水交差点
+  [32, 44], // 健軍校前
+  [33, 46], // 動植物園入口
+  [34, 48], // 健軍町
+]);
+
+// B系統: 偶数インデックスが電停位置 (0=上熊本, 2=県立体育館前, ...)
+const B_STATION_POSITIONS: Map<number, number> = new Map([
+  [21, 0],  // 上熊本
+  [22, 2],  // 県立体育館前
+  [23, 4],  // 本妙寺入口
+  [24, 6],  // 杉塘
+  [25, 8],  // 段山町
+  [26, 10], // 蔚山町
+  [27, 12], // 新町
+  [28, 14], // 洗馬橋
+  [29, 16], // 西辛島町
+  [8, 18],  // 辛島町（共通区間開始、グループ17=[27,28,29]の次）
+  [9, 20],  // 花畑町
+  [10, 22], // 熊本城・市役所前
+  [11, 24], // 通町筋
+  [12, 26], // 水道町
+  [13, 28], // 九品寺交差点
+  [14, 30], // 交通局前
+  [15, 32], // 味噌天神前
+  [16, 34], // 新水前寺駅前
+  [17, 36], // 国府
+  [18, 38], // 水前寺公園
+  [19, 40], // 市立体育館前
+  [20, 42], // 商業高校前
+  [30, 44], // 八丁馬場
+  [31, 46], // 神水交差点
+  [32, 48], // 健軍校前
+  [33, 50], // 動植物園入口
+  [34, 52], // 健軍町
+]);
+
+// interval_id → 区間グループインデックス のマップを構築
+function buildIntervalToPositionMap(groups: number[][]): Map<number, number> {
+  const map = new Map<number, number>();
+  groups.forEach((group, index) => {
+    group.forEach(intervalId => {
+      map.set(intervalId, index);
+    });
+  });
+  return map;
+}
+
+const A_INTERVAL_TO_POSITION = buildIntervalToPositionMap(A_LINE_GROUPS);
+const B_INTERVAL_TO_POSITION = buildIntervalToPositionMap(B_LINE_GROUPS);
 
 function findApproachingTrams(
   trams: Array<{ interval_id: number; rosen: 'A' | 'B'; us: number; vehicle_type: number }>,
@@ -472,21 +562,28 @@ function findApproachingTrams(
     const tramDirection = tram.us === 0 ? 'up' : 'down';
     if (tramDirection !== targetDirection) continue;
 
-    const currentStation = INTERVAL_MAP.get(tram.interval_id);
-    if (!currentStation) continue;
+    // 電車の現在位置（区間グループインデックス）を取得
+    const intervalToPosition = tram.rosen === 'A' ? A_INTERVAL_TO_POSITION : B_INTERVAL_TO_POSITION;
+    const currentPosition = intervalToPosition.get(tram.interval_id);
+    if (currentPosition === undefined) continue;
 
-    const lineOrder = tram.rosen === 'A' ? A_LINE_ORDER : B_LINE_ORDER;
-    const currentIdx = lineOrder.indexOf(currentStation.id);
-    const targetIdx = lineOrder.indexOf(targetStationId);
+    // ターゲット電停の位置を取得
+    const stationPositions = tram.rosen === 'A' ? A_STATION_POSITIONS : B_STATION_POSITIONS;
+    const targetPosition = stationPositions.get(targetStationId);
+    if (targetPosition === undefined) continue;
 
-    if (currentIdx === -1 || targetIdx === -1) continue;
-
-    let stopsAway: number;
+    // 位置の差分を計算（2グループで1駅分）
+    let positionDiff: number;
     if (targetDirection === 'down') {
-      stopsAway = targetIdx - currentIdx;
+      // 下り（健軍町方面）: 位置が増加する方向
+      positionDiff = targetPosition - currentPosition;
     } else {
-      stopsAway = currentIdx - targetIdx;
+      // 上り（始発方面）: 位置が減少する方向
+      positionDiff = currentPosition - targetPosition;
     }
+
+    // 区間グループは2つで1駅なので、駅数に変換
+    const stopsAway = Math.round(positionDiff / 2);
 
     if (stopsAway > 0 && stopsAway <= 15) {
       results.push({
