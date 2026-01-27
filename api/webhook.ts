@@ -451,9 +451,8 @@ const STATIONS = [
   { id: 34, name: '健軍町', lines: ['A', 'B'] },
 ];
 
-// A系統の区間グループ (実際のAPI interval_idに基づく)
-// 各グループはその位置に対応するinterval_idの配列
-const A_LINE_GROUPS: number[][] = [
+// A系統 上り(us=0)の区間グループ
+const A_UP_GROUPS: number[][] = [
   [1], [2, 3], [4], [5, 6, 7], [8], [9, 10, 11], [12], [13, 14, 15], [16], [17, 18, 19],
   [20], [21, 22, 23], [24], [25, 26, 27, 28, 29], [30], [31, 32, 33], [34], [35, 36, 37],
   [38], [39, 40, 41], [42], [43, 44], [45], [46, 47, 48, 49, 50, 51, 52], [53], [54, 55],
@@ -463,11 +462,19 @@ const A_LINE_GROUPS: number[][] = [
   [108, 109, 110], [111], [112, 113, 114], [115], [116, 117, 118, 119], [120]
 ];
 
-// B系統の区間グループ
-const B_LINE_GROUPS: number[][] = [
-  [201], [202, 203], [204], [205], [206], [207], [208], [209, 210, 211], [212],
-  [213, 214, 215], [216], [217, 218, 219], [220], [221, 222], [223], [224, 225], [226],
-  // 共通区間（辛島町以降）
+// A系統 下り(us=1)の区間グループ（3箇所で上りと異なる）
+const A_DOWN_GROUPS: number[][] = [
+  [1], [2, 3], [4], [5, 6, 7], [8], [9, 10, 11], [12], [13, 14, 15, 16], [17], [18, 19],
+  [20], [21, 22, 23], [24], [25, 26, 27, 28, 29], [30], [31, 32, 33], [34], [35, 36, 37],
+  [38], [39, 40, 41], [42], [43, 44], [45], [46, 47, 48, 49, 50, 51], [52], [53, 54, 55],
+  [56], [57, 58, 59, 60, 61, 62], [63], [64, 65, 66, 67, 68], [69], [70, 71, 72, 73],
+  [74], [75, 76, 77, 78, 79], [80], [81, 82, 83], [84], [85, 86, 87, 88, 89], [90],
+  [91, 92, 93, 94], [95], [96, 97, 98], [99], [100, 101, 102, 103, 104, 105, 106], [107],
+  [108, 109, 110], [111], [112, 113, 114], [115], [116, 117, 118, 119], [120]
+];
+
+// B系統 共通区間部分
+const SHARED_UP: number[][] = [
   [27, 28, 29], [30], [31, 32, 33], [34], [35, 36, 37], [38], [39, 40, 41], [42],
   [43, 44], [45], [46, 47, 48, 49, 50, 51, 52], [53], [54, 55], [56], [57, 58, 59, 60, 61, 62],
   [63], [64, 65, 66, 67, 68], [69], [70, 71, 72, 73], [74], [75, 76, 77, 78, 79], [80],
@@ -475,6 +482,25 @@ const B_LINE_GROUPS: number[][] = [
   [100], [101, 102, 103, 104, 105, 106], [107], [108, 109, 110], [111], [112, 113, 114],
   [115], [116, 117, 118, 119], [120]
 ];
+
+const SHARED_DOWN: number[][] = [
+  [27, 28, 29], [30], [31, 32, 33], [34], [35, 36, 37], [38], [39, 40, 41], [42],
+  [43, 44], [45], [46, 47, 48, 49, 50, 51], [52], [53, 54, 55], [56], [57, 58, 59, 60, 61, 62],
+  [63], [64, 65, 66, 67, 68], [69], [70, 71, 72, 73], [74], [75, 76, 77, 78, 79], [80],
+  [81, 82, 83], [84], [85, 86, 87, 88, 89], [90], [91, 92, 93, 94], [95], [96, 97, 98],
+  [99], [100, 101, 102, 103, 104, 105, 106], [107], [108, 109, 110], [111], [112, 113, 114],
+  [115], [116, 117, 118, 119], [120]
+];
+
+// B系統固有部分
+const B_PREFIX: number[][] = [
+  [201], [202, 203], [204], [205], [206], [207], [208], [209, 210, 211], [212],
+  [213, 214, 215], [216], [217, 218, 219], [220], [221, 222], [223], [224, 225], [226],
+];
+
+// B系統 上り/下り
+const B_UP_GROUPS: number[][] = [...B_PREFIX, ...SHARED_UP];
+const B_DOWN_GROUPS: number[][] = [...B_PREFIX, ...SHARED_DOWN];
 
 // 電停ID → 区間グループインデックスのマッピング
 // A系統: 偶数インデックスが電停位置 (0=田崎橋, 2=二本木口, ...)
@@ -548,8 +574,11 @@ function buildIntervalToPositionMap(groups: number[][]): Map<number, number> {
   return map;
 }
 
-const A_INTERVAL_TO_POSITION = buildIntervalToPositionMap(A_LINE_GROUPS);
-const B_INTERVAL_TO_POSITION = buildIntervalToPositionMap(B_LINE_GROUPS);
+// 方向別のinterval_id → 位置マップ
+const A_UP_INTERVAL_MAP = buildIntervalToPositionMap(A_UP_GROUPS);
+const A_DOWN_INTERVAL_MAP = buildIntervalToPositionMap(A_DOWN_GROUPS);
+const B_UP_INTERVAL_MAP = buildIntervalToPositionMap(B_UP_GROUPS);
+const B_DOWN_INTERVAL_MAP = buildIntervalToPositionMap(B_DOWN_GROUPS);
 
 function findApproachingTrams(
   trams: Array<{ interval_id: number; rosen: 'A' | 'B'; us: number; vehicle_type: number }>,
@@ -563,7 +592,10 @@ function findApproachingTrams(
     if (tramDirection !== targetDirection) continue;
 
     // 電車の現在位置（区間グループインデックス）を取得
-    const intervalToPosition = tram.rosen === 'A' ? A_INTERVAL_TO_POSITION : B_INTERVAL_TO_POSITION;
+    // 原本と同様に、上り(us=0)はU配列、下り(us=1)はD配列を使用
+    const intervalToPosition = tram.us === 0
+      ? (tram.rosen === 'A' ? A_UP_INTERVAL_MAP : B_UP_INTERVAL_MAP)
+      : (tram.rosen === 'A' ? A_DOWN_INTERVAL_MAP : B_DOWN_INTERVAL_MAP);
     const currentPosition = intervalToPosition.get(tram.interval_id);
     if (currentPosition === undefined) continue;
 
