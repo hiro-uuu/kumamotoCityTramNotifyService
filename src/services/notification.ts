@@ -3,7 +3,7 @@ import {
   getStationById,
   getOrderedStations,
   estimateMinutesToArrival,
-  INTERVAL_TO_STATION_MAP,
+  getStationIndex,
 } from '../data/stations.js';
 import {
   getActiveNotificationSettings,
@@ -23,26 +23,23 @@ function calculateStopsAway(
   targetStationId: number,
   targetDirection: Direction
 ): number | null {
-  // Get the tram's current interval info
-  const intervalInfo = INTERVAL_TO_STATION_MAP.get(tram.interval_id);
-  if (!intervalInfo) {
-    return null;
-  }
-
   // Check if tram direction matches target direction
   const tramDirection: Direction = tram.us === 0 ? 'up' : 'down';
   if (tramDirection !== targetDirection) {
     return null;
   }
 
-  // Get ordered stations for the tram's line
-  const orderedStations = getOrderedStations(tram.rosen);
+  // Get the tram's current station index using the new interval mapping
+  const currentStationIndex = getStationIndex(tram.interval_id, tram.rosen, tramDirection);
+  if (currentStationIndex === -1) {
+    return null;
+  }
 
-  // Find indices
-  const currentIndex = orderedStations.findIndex((s) => s.id === intervalInfo.station.id);
+  // Get ordered stations for the tram's line and find target index
+  const orderedStations = getOrderedStations(tram.rosen);
   const targetIndex = orderedStations.findIndex((s) => s.id === targetStationId);
 
-  if (currentIndex === -1 || targetIndex === -1) {
+  if (targetIndex === -1) {
     return null;
   }
 
@@ -50,10 +47,10 @@ function calculateStopsAway(
   let stopsAway: number;
   if (targetDirection === 'down') {
     // Going toward Kengunmachi (increasing index)
-    stopsAway = targetIndex - currentIndex;
+    stopsAway = targetIndex - currentStationIndex;
   } else {
     // Going up (decreasing index)
-    stopsAway = currentIndex - targetIndex;
+    stopsAway = currentStationIndex - targetIndex;
   }
 
   // Return null if tram has already passed the station
