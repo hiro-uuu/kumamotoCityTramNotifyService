@@ -360,18 +360,33 @@ function buildIntervalMap(line: 'A' | 'B', direction: Direction): Map<number, In
         }
       }
       stationIndex++;
-    } else if (!isStationGroup && stationIndex < stationOrder.length) {
-      // Between stations - assign to the next station (the one the tram is approaching)
-      const nextStationId = stationOrder[stationIndex];
-      const nextStation = STATIONS.find((s) => s.id === nextStationId);
+    } else if (!isStationGroup) {
+      // Between stations - assign to the station the tram is approaching
+      // Group array is ordered from 田崎橋/上熊本 to 健軍町
+      // - Down direction (toward 健軍町): approaching the NEXT station in array (stationIndex)
+      // - Up direction (toward 田崎橋/上熊本): approaching the PREVIOUS station in array (stationIndex - 1)
+      let approachingStationIndex: number;
 
-      if (nextStation) {
-        for (const intervalId of group) {
-          map.set(intervalId, {
-            station: nextStation,
-            groupIndex,
-            isAtStation: false,
-          });
+      if (direction === 'down') {
+        // Going toward Kengunmachi - approaching the next station
+        approachingStationIndex = stationIndex;
+      } else {
+        // Going up (toward Tasaki/Kamikumamoto) - approaching the previous station
+        approachingStationIndex = stationIndex - 1;
+      }
+
+      if (approachingStationIndex >= 0 && approachingStationIndex < stationOrder.length) {
+        const approachingStationId = stationOrder[approachingStationIndex];
+        const approachingStation = STATIONS.find((s) => s.id === approachingStationId);
+
+        if (approachingStation) {
+          for (const intervalId of group) {
+            map.set(intervalId, {
+              station: approachingStation,
+              groupIndex,
+              isAtStation: false,
+            });
+          }
         }
       }
     }
