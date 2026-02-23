@@ -361,28 +361,29 @@ function buildIntervalMap(line: 'A' | 'B', direction: Direction): Map<number, In
       }
       stationIndex++;
     } else if (!isStationGroup) {
-      // Between stations - assign to the station the tram is approaching
+      // Between stations - assign to the last passed station
       // Group array is ordered from 田崎橋/上熊本 to 健軍町
-      // - Down direction (toward 健軍町): approaching the NEXT station in array (stationIndex)
-      // - Up direction (toward 田崎橋/上熊本): approaching the PREVIOUS station in array (stationIndex - 1)
-      let approachingStationIndex: number;
+      // [StationA(low idx)] [between] [StationB(high idx)]
+      // - Down direction (toward 健軍町, idx increasing): last passed = stationIndex - 1
+      // - Up direction (toward 田崎橋/上熊本, idx decreasing): last passed = stationIndex
+      let lastPassedStationIndex: number;
 
       if (direction === 'down') {
-        // Going toward Kengunmachi - approaching the next station
-        approachingStationIndex = stationIndex;
+        // Going toward Kengunmachi - last passed is the previous station
+        lastPassedStationIndex = stationIndex - 1;
       } else {
-        // Going up (toward Tasaki/Kamikumamoto) - approaching the previous station
-        approachingStationIndex = stationIndex - 1;
+        // Going up (toward Tasaki/Kamikumamoto) - last passed is the next station in array
+        lastPassedStationIndex = stationIndex;
       }
 
-      if (approachingStationIndex >= 0 && approachingStationIndex < stationOrder.length) {
-        const approachingStationId = stationOrder[approachingStationIndex];
-        const approachingStation = STATIONS.find((s) => s.id === approachingStationId);
+      if (lastPassedStationIndex >= 0 && lastPassedStationIndex < stationOrder.length) {
+        const lastPassedStationId = stationOrder[lastPassedStationIndex];
+        const lastPassedStation = STATIONS.find((s) => s.id === lastPassedStationId);
 
-        if (approachingStation) {
+        if (lastPassedStation) {
           for (const intervalId of group) {
             map.set(intervalId, {
-              station: approachingStation,
+              station: lastPassedStation,
               groupIndex,
               isAtStation: false,
             });
