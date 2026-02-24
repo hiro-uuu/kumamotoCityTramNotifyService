@@ -293,7 +293,11 @@ async function handleMessage(
             message += '  → 近くに電車はありません\n';
           } else {
             for (const tram of approaching.slice(0, 3)) {
-              message += `  → ${tram.stopsAway}駅前 (約${tram.minutes}分) ${tram.line}系統\n`;
+              if (tram.stopsAway === 0) {
+                message += `  → 到着中 ${tram.line}系統\n`;
+              } else {
+                message += `  → ${tram.stopsAway}駅前 (約${tram.minutes}分) ${tram.line}系統\n`;
+              }
             }
           }
         }
@@ -448,7 +452,8 @@ const STATIONS = [
   { id: 31, name: '神水交差点', lines: ['A', 'B'] },
   { id: 32, name: '健軍校前', lines: ['A', 'B'] },
   { id: 33, name: '動植物園入口', lines: ['A', 'B'] },
-  { id: 34, name: '健軍町', lines: ['A', 'B'] },
+  { id: 34, name: '健軍交番前', lines: ['A', 'B'] },
+  { id: 35, name: '健軍町', lines: ['A', 'B'] },
 ];
 
 // A系統 上り(us=0)の区間グループ
@@ -502,66 +507,11 @@ const B_PREFIX: number[][] = [
 const B_UP_GROUPS: number[][] = [...B_PREFIX, ...SHARED_UP];
 const B_DOWN_GROUPS: number[][] = [...B_PREFIX, ...SHARED_DOWN];
 
-// 電停ID → 区間グループインデックスのマッピング
-// A系統: 偶数インデックスが電停位置 (0=田崎橋, 2=二本木口, ...)
-const A_STATION_POSITIONS: Map<number, number> = new Map([
-  [1, 0],   // 田崎橋
-  [2, 2],   // 二本木口
-  [3, 4],   // 熊本駅前
-  [4, 6],   // 祇園橋
-  [5, 8],   // 呉服町
-  [6, 10],  // 河原町
-  [7, 12],  // 慶徳校前
-  [8, 14],  // 辛島町
-  [9, 16],  // 花畑町
-  [10, 18], // 熊本城・市役所前
-  [11, 20], // 通町筋
-  [12, 22], // 水道町
-  [13, 24], // 九品寺交差点
-  [14, 26], // 交通局前
-  [15, 28], // 味噌天神前
-  [16, 30], // 新水前寺駅前
-  [17, 32], // 国府
-  [18, 34], // 水前寺公園
-  [19, 36], // 市立体育館前
-  [20, 38], // 商業高校前
-  [30, 40], // 八丁馬場
-  [31, 42], // 神水交差点
-  [32, 44], // 健軍校前
-  [33, 46], // 動植物園入口
-  [34, 48], // 健軍町
-]);
-
-// B系統: 偶数インデックスが電停位置 (0=上熊本, 2=県立体育館前, ...)
-const B_STATION_POSITIONS: Map<number, number> = new Map([
-  [21, 0],  // 上熊本
-  [22, 2],  // 県立体育館前
-  [23, 4],  // 本妙寺入口
-  [24, 6],  // 杉塘
-  [25, 8],  // 段山町
-  [26, 10], // 蔚山町
-  [27, 12], // 新町
-  [28, 14], // 洗馬橋
-  [29, 16], // 西辛島町
-  [8, 18],  // 辛島町（共通区間開始、グループ17=[27,28,29]の次）
-  [9, 20],  // 花畑町
-  [10, 22], // 熊本城・市役所前
-  [11, 24], // 通町筋
-  [12, 26], // 水道町
-  [13, 28], // 九品寺交差点
-  [14, 30], // 交通局前
-  [15, 32], // 味噌天神前
-  [16, 34], // 新水前寺駅前
-  [17, 36], // 国府
-  [18, 38], // 水前寺公園
-  [19, 40], // 市立体育館前
-  [20, 42], // 商業高校前
-  [30, 44], // 八丁馬場
-  [31, 46], // 神水交差点
-  [32, 48], // 健軍校前
-  [33, 50], // 動植物園入口
-  [34, 52], // 健軍町
-]);
+// 路線別の駅順序（station-index方式で使用）
+// A系統: 田崎橋(1) → 健軍町(35) 全26駅
+const A_LINE_STATION_ORDER = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 30, 31, 32, 33, 34, 35];
+// B系統: 上熊本(21) → 健軍町(35) 全28駅
+const B_LINE_STATION_ORDER = [21, 22, 23, 24, 25, 26, 27, 28, 29, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 30, 31, 32, 33, 34, 35];
 
 // interval_id → 区間グループインデックス のマップを構築
 function buildIntervalToPositionMap(groups: number[][]): Map<number, number> {
@@ -592,32 +542,44 @@ function findApproachingTrams(
     if (tramDirection !== targetDirection) continue;
 
     // 電車の現在位置（区間グループインデックス）を取得
-    // 原本と同様に、上り(us=0)はU配列、下り(us=1)はD配列を使用
     const intervalToPosition = tram.us === 0
       ? (tram.rosen === 'A' ? A_UP_INTERVAL_MAP : B_UP_INTERVAL_MAP)
       : (tram.rosen === 'A' ? A_DOWN_INTERVAL_MAP : B_DOWN_INTERVAL_MAP);
-    const currentPosition = intervalToPosition.get(tram.interval_id);
-    if (currentPosition === undefined) continue;
+    const groupIndex = intervalToPosition.get(tram.interval_id);
+    if (groupIndex === undefined) continue;
 
-    // ターゲット電停の位置を取得
-    const stationPositions = tram.rosen === 'A' ? A_STATION_POSITIONS : B_STATION_POSITIONS;
-    const targetPosition = stationPositions.get(targetStationId);
-    if (targetPosition === undefined) continue;
+    // 路線の駅順序を取得
+    const stationOrder = tram.rosen === 'A' ? A_LINE_STATION_ORDER : B_LINE_STATION_ORDER;
 
-    // 位置の差分を計算（2グループで1駅分）
-    let positionDiff: number;
-    if (targetDirection === 'down') {
-      // 下り（健軍町方面）: 位置が増加する方向
-      positionDiff = targetPosition - currentPosition;
+    // groupIndex → 駅インデックスに変換
+    // 偶数: 駅にいる → stationIndex = groupIndex / 2
+    // 奇数: 駅間にいる → 方向に応じて最後に通過した駅を割り当て
+    let currentStationIndex: number;
+    if (groupIndex % 2 === 0) {
+      currentStationIndex = groupIndex / 2;
     } else {
-      // 上り（始発方面）: 位置が減少する方向
-      positionDiff = currentPosition - targetPosition;
+      if (targetDirection === 'down') {
+        // 下り: 直前の駅（groupIndex-1の駅）を通過済み
+        currentStationIndex = (groupIndex - 1) / 2;
+      } else {
+        // 上り: 直後の駅（groupIndex+1の駅）を通過済み
+        currentStationIndex = (groupIndex + 1) / 2;
+      }
     }
 
-    // 区間グループは2つで1駅なので、駅数に変換
-    const stopsAway = Math.round(positionDiff / 2);
+    // ターゲット駅の駅順序でのインデックスを取得
+    const targetIndex = stationOrder.indexOf(targetStationId);
+    if (targetIndex === -1) continue;
 
-    if (stopsAway > 0 && stopsAway <= 15) {
+    // 駅数の差分を計算
+    let stopsAway: number;
+    if (targetDirection === 'down') {
+      stopsAway = targetIndex - currentStationIndex;
+    } else {
+      stopsAway = currentStationIndex - targetIndex;
+    }
+
+    if (stopsAway >= 0 && stopsAway <= 10) {
       results.push({
         line: tram.rosen,
         stopsAway,
